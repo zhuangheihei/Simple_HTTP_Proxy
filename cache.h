@@ -1,7 +1,7 @@
 #include <string>
 #include <iostream>
 using namespace std;
-#define MAXPATHSIZE 50
+#define PATH_SIZE 50
 #define MAXTIMESIZE 50
 
 class Entry{
@@ -13,12 +13,12 @@ public:
 	Entry *pre ;
 
 	Entry(void): nxt(NULL), pre(NULL){
-		path = (char*) calloc(MAXPATHSIZE, 1);
+		path = (char*) calloc(PATH_SIZE, 1);
 		expire = (char*) calloc(MAXTIMESIZE, 1);
 	}
 
 	Entry(string _url, char* tmppath, char* tmptime): url(_url), nxt(NULL), pre(NULL){
-		path = (char*) calloc(MAXPATHSIZE, 1);
+		path = (char*) calloc(PATH_SIZE, 1);
 		strcpy(path, tmppath);
 
 		expire = (char*) calloc(MAXTIMESIZE, 1);
@@ -52,7 +52,7 @@ public:
 		}
 
 		char * cpath;
-		cpath = (char*) calloc(MAXPATHSIZE, 1);
+		cpath = (char*) calloc(PATH_SIZE, 1);
 		cpath = get(NewEntry->url);
 		if(cpath == NULL){
 			this->cnt++;
@@ -87,17 +87,20 @@ public:
 		}
 	}
 
-	// print the cache
+	// print all URLs in cache
 	void PrintCache(void){
 		Entry *tmp = this->head;
 		int i = 0;
+		cout << "======" << endl;
+		cout << "Current URL(s) in cache:" << endl;
 		while(tmp != NULL){
 			if(tmp != this->head){
-				cout << ++i << ": " << tmp->url << " : "<< tmp->path <<endl<< "         : " << tmp->expire << endl;
+				cout << "URL " << ++i << ": " << tmp->url << " | Cache path: "<< tmp->path << " | Time to expiration: " << tmp->expire << endl;
 			}
 			tmp = tmp->nxt;
 		}
-		cout << cnt << " entries in cache.\n";
+		cout << cnt << " URL(s) in cache" << endl;
+		cout << "======" << endl;
 	}
 
 	// replace the entry in use to head
@@ -120,13 +123,15 @@ public:
 	char* get(string QueryURL){
 		Entry *tmp = this->head;
 		char* retpath;
-		retpath = (char*) calloc(MAXPATHSIZE, 1);
+		retpath = (char*) calloc(PATH_SIZE, 1);
 		while(tmp!=NULL){
 			if(QueryURL.compare(tmp->url) != 0){
 				tmp = tmp->nxt;
 			}else{
 				strcpy(retpath, tmp->path);
-				cout<<"ping, path: " << retpath<<" : "<< tmp->path <<endl;
+				//cout<<"ping, path: " << retpath<<" : "<< tmp->path <<endl;
+				//cout<<"path of URL: " << retpath << endl;
+				cout << "Get path successfully, path is: " << retpath << endl;
 				UpgEnt(tmp); // replace this entry to head
 				return retpath;
 			}
@@ -139,13 +144,13 @@ public:
 		Entry *tmp = this->head;
 		char* retexp;
 		retexp = (char*) calloc(MAXTIMESIZE, 1);
-		strcpy(retexp , "Mon, 17-Oct-2000 19:15:16 GMT");
+		strcpy(retexp , "Mon, 17-Nov-2017 19:15:16 GMT");
 		while(tmp!=NULL){
 			if(QueryURL.compare(tmp->url) != 0){
 				tmp = tmp->nxt;
 			}else{
 				strcpy(retexp, tmp->expire);
-				cout<<"ping, expire: " << retexp<<" : "<< tmp->expire <<endl;
+				//cout<<"ping, expire: " << retexp<<" : "<< tmp->expire <<endl;
 				//UpgEnt(tmp); // replace this entry to head
 				return retexp;
 			}

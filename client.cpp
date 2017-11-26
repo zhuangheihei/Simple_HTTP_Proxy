@@ -170,11 +170,11 @@ int main(int argc, char *argv[])
 		memset(RETbuf,0,MAXRETSIZE);
 	}
 	cout<<"FILE closed"<<endl;
-	if (recvn == 0){
+	if (recvn == 0 && txtfile != NULL){
 		fclose(txtfile);
 	}
-
-	free(defURL);
+	if(defURL != NULL)
+		free(defURL);
 	close(sockfd);
 
 	return 0;

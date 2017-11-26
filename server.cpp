@@ -30,32 +30,38 @@ void sigchld_handler(int s)
 	while(waitpid(-1, NULL, WNOHANG) > 0);
 }
 
-int send_from_cache(char *cachepath, char *buf, int sockid){
+//cache path is the 
+int send_from_cache(char *cachepath, int sockid){ //int send_from_cache(char *cachepath, char *buf, int sockid){
 	//---------Cache Hit!------------
 	// the mycache.get will automatically refresh the cache
 	// send Reponse to client
 	//mycache.PrintCache();
-	cout << "Cache Hit: " << cachepath << endl;
+	
+	cout << "URL file found: " << cachepath << endl;
 	FILE *rfile;
-	char* rbuf;
+	//char* rbuf;
+	char rbuf[MAXRETSIZE];
 	int sent;
-	if(strstr(buf, ".txt")){
-		rbuf = (char *) calloc(MAXRETSIZE, 1);
+	if(strstr(cachepath, ".txt")){
+		//rbuf = (char *) calloc(MAXRETSIZE, 1);
 		strcpy(rbuf, "\r\n\r\n");
 		char ch;
 		rfile = fopen(cachepath, "r");
 		if (rfile == NULL) {
-			fprintf(stderr, "Can't open output file %s!\n",
-					cachepath);
+			fprintf(stderr, "Can't open URL file %s!\n",cachepath);
 			exit(1);
 		}
 		while((ch = fgetc(rfile)) != EOF){
-			//cout << "ping : " << ch<<endl ;
 			strncat(rbuf, &ch, 1);
 		}
-		fclose(rfile);
+		//txtfile = fopen(cachepath, "r");
+		fgets(rbuf, MAXRETSIZE + 1, rfile);
+		if(rfile != NULL)
+			fclose(rfile);
 		sent = send(sockid, rbuf, strlen(rbuf), 0);
-	}else if(strstr(buf, ".jpg")){
+		cout << sent << " bytes of data sent to client from cache." << endl;
+		
+	}else if(strstr(cachepath, ".jpg")){
 		rfile = fopen(cachepath, "rb");
 
 		// obtain file size:
@@ -64,15 +70,17 @@ int send_from_cache(char *cachepath, char *buf, int sockid){
 		lsize = ftell(rfile);
 		rewind(rfile);
 
-		rbuf = (char *) calloc(lsize+4, 1);
+		//rbuf = (char *) calloc(lsize+4, 1);
 		strcpy(rbuf, "\r\n\r\n");
 		fread(rbuf+4, 1, lsize, rfile);
-		fclose(rfile);
+		if(rfile != NULL)
+			fclose(rfile);
 		sent = send(sockid, rbuf, lsize+4, 0);
 	}
-//	cout<< ">>"<<sent<<"\t";
-free(rbuf);
-memset(buf, 0, MAXDATASIZE);
+
+// if(rbuf != NULL)
+// 	free(rbuf);
+//memset(buf, 0, MAXDATASIZE);
 return 0;
 }
 
@@ -87,18 +95,17 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+
 // compare "exptime" with current time, 1-exptime has been passed, 0-not passed
-int timecmp(char * exptime){
+bool timecmp(char * exptime){
 
 	//current time
 	time_t rawtime;
 	struct tm * ptm;
 	time(&rawtime);
 	ptm = gmtime(&rawtime);
-	cout << ptm->tm_wday << ", " << ptm->tm_mday << " " << ptm->tm_mon
-			<< " " << ptm->tm_year << " " << ptm->tm_hour << ":"
-			<< ptm->tm_min << ":" << ptm->tm_sec << " " << endl;
-
+	//cout << ptm->tm_wday << ", " << ptm->tm_mday << " " << ptm->tm_mon<< " " << ptm->tm_year << " " << ptm->tm_hour << ":"<< ptm->tm_min << ":" << ptm->tm_sec << " " << endl;
+	
 
 	char * wdays;
 	wdays = (char*) calloc(21, 1);
@@ -110,7 +117,7 @@ int timecmp(char * exptime){
 	//check time zone.
 	if (!strstr(exptime, "GMT")){
 		cout << "Error: Not GMT Time.!\n";
-		return -1;
+		return false;
 	}
 
 	struct tm * exptm;
@@ -147,44 +154,51 @@ int timecmp(char * exptime){
 	exptm->tm_sec = atoi(tmptime+2);
 
 //	 expire time in cache
-	cout << exptm->tm_wday << ", " << exptm->tm_mday << " " << exptm->tm_mon
-			<< " " << exptm->tm_year<< " " << exptm->tm_hour << ":"
+	cout << exptm->tm_wday << ", " << exptm->tm_mday << " " << exptm->tm_mon << " " << exptm->tm_year<< " " << exptm->tm_hour << ":"
 			<< exptm->tm_min << ":" << exptm->tm_sec << " " << endl;
 
-	free(tmptime);
-	free(wdays);
-	free(months);
-
+	if(tmptime != NULL)
+		free(tmptime);
+	if(wdays != NULL)
+		free(wdays);
+	if(months != NULL)
+		free(months);
+	
+	cout << "timecmp works.." << endl;
+	
 	if (exptm->tm_year > ptm->tm_year)
-		return 0;
+		return false;
 	else if((exptm->tm_year < ptm->tm_year))
-		return 1;
+		return true;
 	else
 		if(exptm->tm_mon > ptm->tm_mon)
-			return 0;
+			return false;
 		else if(exptm->tm_mon < ptm->tm_mon)
-			return 1;
+			return true;
 		else
 			if(exptm->tm_mday > ptm->tm_mday)
-				return 0;
+				return false;
 			else if(exptm->tm_mday < ptm->tm_mday)
-				return 1;
+				return true;
 			else
 				if(exptm->tm_hour > ptm->tm_hour)
-					return 0;
+					return false;
 				else if(exptm->tm_hour < ptm->tm_hour)
-					return 1;
+					return true;
 				else
 					if(exptm->tm_min > ptm->tm_min)
-						return 0;
+						return false;
 					else if(exptm->tm_min < ptm->tm_min)
-						return 1;
+						return true;
 					else
 						if(exptm->tm_sec > ptm->tm_sec)
-							return 0;// not expired
-						else return 1;
-	return 1;  //expired
+							return false;// not expired
+						else return true;
+	return true;  //expired
+
 }
+
+
 
 
 int main(int argc, char *argv[])
@@ -201,7 +215,7 @@ int main(int argc, char *argv[])
 	char *center;
 
 	int web_socket;
-	int listener_sockfd;// listening socket descriptor
+	int server_socket;// listening socket descriptor
 	int client_socket;   // New client sockfd
 	struct sockaddr_storage their_addr; // client address
 
@@ -226,20 +240,18 @@ int main(int argc, char *argv[])
 
 	// loop through all the results and bind to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next){
-		if ((listener_sockfd = socket(p->ai_family, p->ai_socktype,
-				p->ai_protocol)) == -1)	{
+		if ((server_socket = socket(p->ai_family, p->ai_socktype,p->ai_protocol)) == -1){
 			perror("server: socket");
 			continue;
 		}
-
-		if (setsockopt(listener_sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-				sizeof(int)) == -1)	{
+		
+		if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)	{
 			perror("setsockopt");
 			exit(1);
 		}
 
-		if (bind(listener_sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-			close(listener_sockfd);
+		if (bind(server_socket, p->ai_addr, p->ai_addrlen) == -1) {
+			close(server_socket);
 			perror("server: bind");
 			continue;
 		}
@@ -250,14 +262,19 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "server: failed to bind\n");
 		return 2;
 	}
-
+	cout << "Server socket established.." << endl;
+	cout << "Server binded.." << endl;
+	
 	freeaddrinfo(servinfo); // all done with this structure
 
-	if (listen(listener_sockfd, BACKLOG) == -1)	{
+	if (listen(server_socket, BACKLOG) == -1)	{
 		perror("listen");
 		exit(1);
 	}
-
+	
+	cout << "Listening to clients.." << endl;
+	cout << "---------------------------------------------" << endl;
+	
 	sa.sa_handler = sigchld_handler; // reap all dead processes
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
@@ -267,20 +284,20 @@ int main(int argc, char *argv[])
 	}
 
 	// add the listener to the master set
-	FD_SET(listener_sockfd, &master);
+	FD_SET(server_socket, &master);
 
 	// keep track of the biggest file descriptor
-	fdmax = listener_sockfd; // so far, it's this one
+	fdmax = server_socket; // so far, it's this one
 
 	Cache mycache(CACHE_SIZE);
 	char buf[MAXDATASIZE];
 	char GETbuf[MAXDATASIZE];
 	char RETbuf[MAXRETSIZE+1];
 	char ip4[15];
-	char path[MAXPATHSIZE];
+	char path[PATH_SIZE];
 	char exp[MAXTIMESIZE];
 	FILE *txtfile;
-	int expflag = 0;
+	bool is_exp = false;
 	// loop for handling clients
 	while(1)
 	{
@@ -293,10 +310,10 @@ int main(int argc, char *argv[])
 		// run through the existing connections looking for data to read
 		for(i = 0; i <= fdmax; i++) {
 			if (FD_ISSET(i, &temp_fds_list)) { // we got one!!
-				if (i == listener_sockfd) { // we have new connections here!
+				if (i == server_socket) { // we have new connections here!
 					// handle new connections
 					addrlen = sizeof their_addr;
-					client_socket = accept(listener_sockfd, (struct sockaddr *)&their_addr, &addrlen);
+					client_socket = accept(server_socket, (struct sockaddr *)&their_addr, &addrlen);
 					if (client_socket == -1) {
 						perror("accept");
 					} else {
@@ -308,16 +325,17 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					int recvn =0 ;
+					int recv_bytes =0 ;
 					memset(buf,0,MAXDATASIZE);
-					recvn = recv(i, buf, MAXDATASIZE, 0);
+					recv_bytes = recv(i, buf, MAXDATASIZE, 0);
 
 					// handle data from a client
-					if (recvn <= 0) {
+					if (recv_bytes <= 0) {
 						// got error or connection closed by client
-						if (recvn == 0) {
+						if (recv_bytes == 0) {
 							// connection closed
 							cout << "client disconnected."<<endl;
+							cout << "---------------------------------------------" <<endl;
 						} else {
 							perror("recv");
 						}
@@ -325,45 +343,48 @@ int main(int argc, char *argv[])
 						FD_CLR(i, &master); // remove from master set
 						break;
 					}
-					//cout << "recvn: " << recvn <<endl;
-					cout << "URL requested by client: " << buf << endl;
 
-					string URLstr(buf);
+					cout << "URL requested by client is: " << buf << endl;
+
+					string URLstr(buf); //buf does not contains .txt!!
 					char* cachepath;
-					cachepath = (char*) calloc(MAXPATHSIZE, 1);
-					mycache.PrintCache();
+					cachepath = (char*) calloc(PATH_SIZE, 1);
+					//mycache.PrintCache();
 					cachepath = mycache.get(URLstr);
-
+					//cout << "cachepath is: " << cachepath << endl;
+					
 					// check expire or not
 					char * cacheexp;
-					//cout << "ping\n";
+					
 					cacheexp = (char*) calloc(MAXTIMESIZE, 1);
 
-					//cout << "ping\n";
+					
 					cacheexp = mycache.getexpire(URLstr);
 
 					if (cachepath != NULL){// when file is in the cache
-						cout << "cacheexp--> "<<cacheexp<<endl;
 
-						expflag = timecmp(cacheexp); // 1- expire, 0- not yet
+						is_exp = timecmp(cacheexp); 
 						
-						cout << "expflag--> "<<expflag<<endl;
+						cout << "cacheexp is: "<< cacheexp <<endl;
+
+						cout << "is exp: "<< is_exp <<endl;
 					}
-					if(cachepath != NULL && expflag == 0)/* only file is not expired */
-					{
-						send_from_cache(cachepath,buf,i);
+					
+					
+					//check if url is expired, and do corresponding operations 
+					if(cachepath != NULL && is_exp == false){ //when URL is not expired
+						send_from_cache(cachepath, i); //buf is 
 					}
-					else
-					{
-						// Cache miss
-						cout << "Cache Miss or Expired field" << endl;
+					else{ //URL is expired or not found
+					
+						cout << "No such a URL in cache or it is already expired." << endl;
 						center = strstr(buf+7, "/");
 
 						if(center){
 							int size = center-(buf+7);
 							strncpy(ip4, buf+7, size);
 							ip4[size] ='\0';
-							cout<<"host  "<<ip4<<endl;
+							cout<<"Web URL is:  "<<ip4<<endl;
 						}else{
 							strcpy(ip4, buf+7);
 							ip4[strlen(ip4)] ='\0';
@@ -394,8 +415,8 @@ int main(int argc, char *argv[])
 
 						freeaddrinfo(servinfo);
 
-						if(expflag == 1)
-						{
+						if(is_exp == true){ // if URL expired
+						
 						// concate all message and send Get
 							memset(GETbuf, 0, MAXDATASIZE);
 							strcpy(GETbuf, "GET ");
@@ -404,51 +425,56 @@ int main(int argc, char *argv[])
 							strcat(GETbuf, "If-Modified-Since: ");
 							strcat(GETbuf, cacheexp);
 							strcat(GETbuf, "\r\n\r\n");
-							cout << GETbuf <<endl;
-							cout << cacheexp <<endl;
+							// cout <<"if it expires then GETbuf should be:" << GETbuf <<endl;
+							// cout << "cacheexp should be: " << cacheexp <<endl;
 
 						}
-						else
-						{
-
+						else{
 							memset(GETbuf, 0, MAXDATASIZE);
 							strcpy(GETbuf, "GET ");
 							strcat(GETbuf, buf);
 							strcat(GETbuf, " HTTP/1.0\r\n\r\n");
+							// cout << "if not expired the GETbuf should be:" << GETbuf << endl;
+							
 						}
-
-						recvn = send(web_socket, GETbuf, sizeof(GETbuf), 0);
-						cout << GETbuf <<endl;
-//						cout<<"server request = "<<recvn<<endl;
-
-						// recv Reponse from web until recvn == 0
+						
+						
+						recv_bytes = send(web_socket, GETbuf, sizeof(GETbuf), 0);
+						//cout << GETbuf <<endl;
+						cout << "Request sent to " << buf << endl;
+						
+						//recv data from web server until recv == 0
 						memset(RETbuf, 0, MAXRETSIZE);
-						recvn = MAXRETSIZE;
-						int r_flag = 1;
+						recv_bytes = MAXRETSIZE; //recv data from web server
+						int r_flag = 1; //check is data received from web 
 						int file_flag = 0;
-						while(r_flag){
+						
+						
+						while(r_flag){ //receive from web
+							
 							int sent;
-							recvn = recv(web_socket, RETbuf, MAXRETSIZE*sizeof(char), 0);
-//							cout<<"<<"<<recvn<<"\t";
-//							RETbuf[recvn] = '\0';
-//							cout<<"<<"<<RETbuf<<"\n";
+							
+							recv_bytes = recv(web_socket, RETbuf, MAXRETSIZE*sizeof(char), 0);
 
 							if (strstr(RETbuf, "404 Not Found")){
 								cout << "404 Not Found\n";
+								cout << "---------------------------------------------" << endl;
 								sent = send(i, "404 Not Found", 13, 0);
 								close(web_socket);
-								r_flag = 0;
+								r_flag = 0; //no data from web
 								break;
 							}
 
-							if(expflag == 1 && file_flag ==0)
+							if(is_exp == true && file_flag == 0)
 							{
-								cout<<"checking latest, server says";
+								cout<<"checking if URL expired.." <<endl;
+								
 								if(strstr(RETbuf, "304 Not Modified"))
 								{
 									cout <<"= 304 Not Modified"<<endl;
 
-									send_from_cache(cachepath,buf,i);
+									send_from_cache(cachepath,i);
+									
 									break;
 								}
 								if(strstr(RETbuf, "200 OK"))
@@ -456,30 +482,41 @@ int main(int argc, char *argv[])
 									cout <<"= 200 OK"<<endl;
 								}
 							}
-//
-							if (recvn == 0){
-								cout<<"Finished transfer\n\n"<<endl;
+							
+							if (recv_bytes == 0){
+								cout<<"Transmission completed."<<endl;
+								cout <<"---------------------------------------------" << endl;
 								close(web_socket);
-								r_flag = 0;
+								r_flag = 0; 
 								break;
 							}
-							if(!file_flag){  // first time
+							
+							//write the data from web to cache folder, and read from it.
+							if(!file_flag){  // URL appears first time 
+								
 								file_flag = 1;
 
 								struct stat st = {0};
 
-								if (stat("cachefolder", &st) == -1) {
-									mkdir("cachefolder", 0700);
+								if (stat("cache", &st) == -1) {
+									mkdir("cache", 0700);
 								}
-								cout<<"fetching data from the server\n";
-								strcpy(path, "cachefolder/");
+								cout<<"Getting data from the web server.." << endl;
+								strcpy(path, "cache/");
 								strcat(path, strrchr(buf, '/')+1); // initialize the path for recv file
-
+								strcat(path, ".txt");
 								strncpy(exp, strstr(RETbuf, "Expires: ") + 9, 29);
-//								cout<<RETbuf<<endl;
+								
+								cout << "Path****************************************" << endl; 
+								cout << path << endl;
+								cout << "********************************************" << endl;
+								//cout << "WEb content*********************************" << endl; 
+								//cout<< RETbuf <<endl;
+								
 								// add this entry in the cache
 								//Entry ent(URLstr, path);
-								Entry *ent = new Entry ();
+								
+								Entry *ent = new Entry();
 								ent->url = URLstr;
 								strcpy(ent->path, path);
 								strcpy(ent->expire, exp);
@@ -487,7 +524,7 @@ int main(int argc, char *argv[])
 								mycache.PrintCache();
 
 								if(strstr(path, ".txt")){
-									// begin to write into file
+									//begin to write into file
 									//cout << "RETbuf: \n" << RETbuf <<endl;
 									txtfile = fopen(path, "w");
 									if (txtfile == NULL){
@@ -495,26 +532,29 @@ int main(int argc, char *argv[])
 										exit(1);
 									}
 									fputs(strstr(RETbuf, "\r\n\r\n")+4, txtfile);
+									cout << "Cache saved.." << endl;
 								}else if(strstr(path, ".jpg")){
 									txtfile = fopen(path, "wb");
 									if (txtfile == NULL){
 										fprintf(stderr, "Can't open output file %s!\n",	path);
 										exit(1);
 									}
-									fwrite(strstr(RETbuf, "\r\n\r\n")+4, 1, recvn - (strstr(RETbuf, "\r\n\r\n") + 4 - RETbuf), txtfile);
+									fwrite(strstr(RETbuf, "\r\n\r\n")+4, 1, recv_bytes - (strstr(RETbuf, "\r\n\r\n") + 4 - RETbuf), txtfile);
 								}
-							}else{
+							}else{ //URL is in cache, then read from cache
 								if(strstr(path, ".txt")){
-									fputs(RETbuf, txtfile);
+									//txtfile = fopen(path, "r");
+									//fgets(RETbuf, MAXRETSIZE + 1, txtfile);
+									fwrite(RETbuf, 1, recv_bytes, txtfile)
 								}else if(strstr(path, ".jpg")){
-									fwrite(RETbuf, 1, recvn, txtfile);
+									fwrite(RETbuf, 1, recv_bytes, txtfile);
 								}
+								//send_from_cache(cachepath, i);
 							}
 							// send Reponse to client
-							sent = send(i, RETbuf, recvn, 0);
-//							cout<<">> "<< sent <<" ";
+							sent = send(i, RETbuf, recv_bytes, 0);
 						}
-						if(recvn == 0){
+						if(recv_bytes == 0 && txtfile != NULL){
 							fclose(txtfile);
 						}
 						memset(RETbuf, 0, MAXRETSIZE);
