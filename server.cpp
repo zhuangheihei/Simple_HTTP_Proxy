@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
 								if(strstr(path, ".txt")){
 									//txtfile = fopen(path, "r");
 									//fgets(RETbuf, MAXRETSIZE + 1, txtfile);
-									fwrite(RETbuf, 1, recv_bytes, txtfile)
+									fwrite(RETbuf, 1, recv_bytes, txtfile);
 								}else if(strstr(path, ".jpg")){
 									fwrite(RETbuf, 1, recv_bytes, txtfile);
 								}
