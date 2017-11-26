@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
 	char RETbuf[MAXRETSIZE+1];
 	char ip4[15];
 	char path[PATH_SIZE];
-	char exp[MAXTIMESIZE];
+	char exp[MAXTIMESIZE]; //expiration time
 	FILE *txtfile;
 	bool is_exp = false;
 	// loop for handling clients
@@ -365,14 +365,15 @@ int main(int argc, char *argv[])
 
 						is_exp = timecmp(cacheexp); 
 						
-						cout << "cacheexp is: "<< cacheexp <<endl;
+						cout << "Cache expires at: "<< cacheexp <<endl;
 
-						cout << "is exp: "<< is_exp <<endl;
+						cout << "Is expired(Y/N) "<< (is_exp == 1? "Y": "N") <<endl;
 					}
 					
 					
 					//check if url is expired, and do corresponding operations 
 					if(cachepath != NULL && is_exp == false){ //when URL is not expired
+						cout << "Cache hit! Will send data from cache." << endl;
 						send_from_cache(cachepath, i); //buf is 
 					}
 					else{ //URL is expired or not found
@@ -417,7 +418,7 @@ int main(int argc, char *argv[])
 
 						if(is_exp == true){ // if URL expired
 						
-						// concate all message and send Get
+						// concate all message and send Get to web to get new data
 							memset(GETbuf, 0, MAXDATASIZE);
 							strcpy(GETbuf, "GET ");
 							strcat(GETbuf, buf);
@@ -425,11 +426,12 @@ int main(int argc, char *argv[])
 							strcat(GETbuf, "If-Modified-Since: ");
 							strcat(GETbuf, cacheexp);
 							strcat(GETbuf, "\r\n\r\n");
+							
 							// cout <<"if it expires then GETbuf should be:" << GETbuf <<endl;
 							// cout << "cacheexp should be: " << cacheexp <<endl;
 
 						}
-						else{
+						else{ //just send data to web to get data
 							memset(GETbuf, 0, MAXDATASIZE);
 							strcpy(GETbuf, "GET ");
 							strcat(GETbuf, buf);
@@ -445,7 +447,7 @@ int main(int argc, char *argv[])
 						
 						//recv data from web server until recv == 0
 						memset(RETbuf, 0, MAXRETSIZE);
-						recv_bytes = MAXRETSIZE; //recv data from web server
+						recv_bytes = 0;//MAXRETSIZE; //recv data from web server
 						int r_flag = 1; //check is data received from web 
 						int file_flag = 0;
 						
@@ -465,21 +467,22 @@ int main(int argc, char *argv[])
 								break;
 							}
 
-							if(is_exp == true && file_flag == 0)
+							if(is_exp == false && file_flag == 0)
 							{
-								cout<<"checking if URL expired.." <<endl;
+								cout<<"Checking if URL modified.." <<endl;
 								
 								if(strstr(RETbuf, "304 Not Modified"))
 								{
-									cout <<"= 304 Not Modified"<<endl;
+									cout <<"= 304 Not Modified, will send data from cache.."<<endl;
 
 									send_from_cache(cachepath,i);
 									
 									break;
 								}
 								if(strstr(RETbuf, "200 OK"))
-								{
-									cout <<"= 200 OK"<<endl;
+								{	
+									cout << "URL file is modified." << endl;
+									cout <<"= 200 OK, will send data from web server.."<<endl;
 								}
 							}
 							
@@ -501,15 +504,23 @@ int main(int argc, char *argv[])
 								if (stat("cache", &st) == -1) {
 									mkdir("cache", 0700);
 								}
+								
 								cout<<"Getting data from the web server.." << endl;
+								
 								strcpy(path, "cache/");
 								strcat(path, strrchr(buf, '/')+1); // initialize the path for recv file
 								strcat(path, ".txt");
-								strncpy(exp, strstr(RETbuf, "Expires: ") + 9, 29);
+								// cout << "Path****************************************" << endl; 
+								// cout << path << endl;
 								
-								cout << "Path****************************************" << endl; 
-								cout << path << endl;
-								cout << "********************************************" << endl;
+								strncpy(exp, strstr(RETbuf, "Expires: ") + 9, 29);
+								cout<< "************" << endl;
+								cout << "exp: " << exp << endl;
+								cout << "************" << endl;
+								
+							
+								
+								// cout << "********************************************" << endl;
 								//cout << "WEb content*********************************" << endl; 
 								//cout<< RETbuf <<endl;
 								
@@ -557,7 +568,9 @@ int main(int argc, char *argv[])
 						if(recv_bytes == 0 && txtfile != NULL){
 							fclose(txtfile);
 						}
-						memset(RETbuf, 0, MAXRETSIZE);
+						memset(path, 0, PATH_SIZE);
+						memset(exp, 0, PATH_SIZE);
+						//memset(RETbuf, 0, MAXRETSIZE);
 						memset(buf, 0, MAXDATASIZE);
 						memset(GETbuf, 0, MAXDATASIZE);
 						close(i); // bye!
